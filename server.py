@@ -6,14 +6,21 @@ import random
 import subprocess
 import threading
 import time
+
 from subprocess import Popen, PIPE, STDOUT
 
 from sign_message import SignMessage
 
-initial = {"scrollSpeed": 5, "backgroundColor": "#ffffff", "textColor": "#000000", "borderColor": "#ffffff", "text": " "}
-
+initial = {
+    "backgroundColor": "#ffffff",
+    "textColor": "#ffffff",
+    "borderColor": "#ffffff",
+    "text": "",
+    "scrollSpeed": 0
+  }
 proc = None
-sign_message = SignMessage(initial)
+sign_message = None
+
 app = Flask(__name__)
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -99,7 +106,7 @@ def turn_off():
     success = False
     if args.development:
       success = True
-      sign_message = SignMessage(initial)
+      sign_message = None
 
     if proc != None:
         proc.kill()
@@ -137,8 +144,9 @@ def update_sign():
         sign_message = None
         return "Could not update sign", 500
 @app.route('/')
-def home():
-    return render_template('index.html',sign_message = sign_message)
+def home():       
+   return render_template('index.html')
+
 
 if __name__ == "__main__":
     # give the last opened an initial value of now,
