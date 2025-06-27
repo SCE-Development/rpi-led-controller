@@ -13,13 +13,13 @@ from sign_message import SignMessage
 
 initial = {
     "backgroundColor": "#ffffff",
-    "textColor": "#ffffff",
+    "textColor": "#000000",
     "borderColor": "#ffffff",
-    "text": "",
-    "scrollSpeed": 0
+    "text": "Sign is Off",
+    "scrollSpeed": 10
   }
 proc = None
-sign_message = None
+sign_message = SignMessage(initial)
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser()
@@ -106,11 +106,11 @@ def turn_off():
     success = False
     if args.development:
       success = True
-      sign_message = None
+      sign_message = SignMessage(initial)
 
     if proc != None:
         proc.kill()
-        sign_message = None
+        sign_message = SignMessage(initial)
         success = True
 
     return jsonify({
@@ -141,7 +141,7 @@ def update_sign():
         })
     except Exception as e:
         print(e, flush=True)
-        sign_message = None
+        sign_message = SignMessage(initial)
         return "Could not update sign", 500
 @app.route('/')
 def home():       
