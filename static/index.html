@@ -10,8 +10,9 @@
     <marquee id = "test" direction ="left" style = "border-style: solid; border-width: 10px; font-family: monospace;font-size: 50px;"/>
     <script>
         const handleFetch = async () =>{
+            url = new URL('api/health-check', window.location.origin)
             try{
-                const res = await fetch("http://127.0.0.1:10000/api/health-check");
+                const res = await fetch(url.href);
                 if(!res.ok){
                 throw new Error("Could not fetch resource"); 
                 }
