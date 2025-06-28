@@ -11,15 +11,8 @@ from subprocess import Popen, PIPE, STDOUT
 
 from sign_message import SignMessage
 
-initial = {
-    "backgroundColor": "#ffffff",
-    "textColor": "#000000",
-    "borderColor": "#ffffff",
-    "text": "Sign is Off",
-    "scrollSpeed": 10
-  }
 proc = None
-sign_message = SignMessage(initial)
+sign_message = None
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser()
@@ -106,11 +99,11 @@ def turn_off():
     success = False
     if args.development:
       success = True
-      sign_message = SignMessage(initial)
+      sign_message = None
 
     if proc != None:
         proc.kill()
-        sign_message = SignMessage(initial)
+        sign_message = None
         success = True
 
     return jsonify({
@@ -141,7 +134,7 @@ def update_sign():
         })
     except Exception as e:
         print(e, flush=True)
-        sign_message = SignMessage(initial)
+        sign_message = None
         return "Could not update sign", 500
 @app.route('/')
 def home():       
