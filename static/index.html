@@ -6,7 +6,7 @@
     <title>SCE LED Sign</title>
 </head>
 <body>
-   <h3 id = "isOff" style= "display: none"></h3>
+   <h3 id = "isOff" style= "display: none">Sign is Off</h3>
     <marquee id = "test" direction ="left" style = "width: 150px; border-style: solid; border-width: 5px; font-family: monospace;font-size: 20px;"/>
  
     <script>
@@ -17,34 +17,26 @@
                 if(!res.ok){
                 throw new Error("Could not fetch resource"); 
                 }
+
                 const data = await res.json();
-                
-                // console.log(data.textColor);
-                // console.log(data.text);
-                // console.log(data.backgroundColor);
-                // console.log(data.borderColor);
-                // console.log(data.scrollSpeed);
-            
 
-                for (let key in data) {
-                    console.log(`${key}: ${data[key]}` == 'success: true');
-                    if(`${key}: ${data[key]}` == 'success: true'){
-                        document.getElementById("isOff").style.display = 'block';
-                        document.getElementById("isOff").innerHTML = "Sign is Off";
+                console.log(Object.hasOwn(data, 'text'));
 
-                        document.getElementById("test").style.display = 'none';
-                    } else{
-                        document.getElementById("test").style.color = data.textColor;
-                        document.getElementById("test").style.backgroundColor = data.backgroundColor;
-                        document.getElementById("test").style.borderColor = data.borderColor;
-                        document.getElementById("test").innerHTML = data.text;
-                        document.getElementById("test").setAttribute('scrollamount', data.scrollSpeed);
-                        document.getElementById("test").style.display = 'block';
-                        
-                        document.getElementById("isOff").style.display = 'none';
+                if (Object.hasOwn(data, 'text')) {
+                    document.getElementById("test").style.color = data.textColor;
+                    document.getElementById("test").style.backgroundColor = data.backgroundColor;
+                    document.getElementById("test").style.borderColor = data.borderColor;
+                    document.getElementById("test").innerHTML = data.text;
+                    document.getElementById("test").setAttribute('scrollamount', data.scrollSpeed);
+                    document.getElementById("test").style.display = 'block';
 
-                    }
+                    document.getElementById("isOff").style.display = 'none';
+                return;
+                } else {   
+                    document.getElementById("isOff").style.display = 'block';
+                    document.getElementById("test").style.display = 'none';
                 }
+
 
             }catch(err){
                 console.log(err)
