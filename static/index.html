@@ -3,9 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCE LED Sign</title>
+    <title>Tying Shoes</title>
 </head>
 <body>
-    <h3>hello from the sign :D</h3>
+    <h3>Tying</h3>
+    
+    <form id="status" action = "/status">
+    <input type="submit" value="Status" />
+    </form>
+ 
+    <form id="tie" method = "get" action = "/tie" method="post">
+        <input
+            type="datetime-local"
+            id="endTime"
+            name="endTime"
+            value="2025-06-30T19:30"
+            min="2025-06-07T00:00"
+            max="2026-07-11T00:00" />
+
+    <input type="submit" value="Tie" />
+    </form>
+
+    <script>
+    
+    </script>
 </body>
+
 </html>

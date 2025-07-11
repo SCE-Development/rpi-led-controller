@@ -1,10 +1,15 @@
-version: '2'
+# version: '2'
 services:
   sce_led_sign:
     build:
       context: .
       dockerfile: ./Dockerfile.dev
     ports:
-      - '7000:7000'
+      - '9000:5000'
+    environment:
+      - FLASK_APP=server.py
+      - FLASK_ENV=development
     volumes:
       - ./static:/app/templates
+      - ./server.py:/app/server.py
+    command: flask run --host=0.0.0.0
