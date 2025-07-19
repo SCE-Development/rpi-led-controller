@@ -29,11 +29,8 @@ def turnOff():
         sign_message = None
 
 def expire(exp):
-    print("expire called with a timeout of", exp, flush=True)
     if cancel_event.wait(timeout=exp):
-        print("forget it lol", flush=True)
         return
-    print("untied lmao", flush=True)
     turnOff()
 
 app = Flask(__name__)
@@ -139,19 +136,15 @@ def update_sign():
             return jsonify({
                 "Sign": "Never Expires"
             })
-        print("TIE CALLED AND ORIENTATION IS TOMORROW!!!!!", flush=True)
 
         format_code = "%Y-%m-%dT%H:%M"
         endTime = datetime.strptime(request.args.get("endTime"), format_code)
         endTime = endTime.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
         currDate = datetime.now(ZoneInfo("America/Los_Angeles"))
-        print(currDate)
-        print(endTime)
 
         ts = abs((endTime - currDate).total_seconds())
 
         if threadExists:
-            print("canceleddd", flush=True)
             cancel_event.set()
             cancel_event = threading.Event()
 
