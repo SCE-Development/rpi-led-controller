@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -8,6 +7,10 @@
   </head>
 
   <body>
+    <form id="tie" method="get" action="/api/update-sign" method="post">
+      <input type="datetime-local" id="endTime" name="endTime" />
+      <input type="submit" value="Submit Time" />
+    </form>
     <h3 id="isOff" style="display: none">Sign is Off</h3>
     <marquee
       id="sign-preview"
@@ -22,6 +25,17 @@
     />
 
     <script>
+      // Get current time in UTC milliseconds
+      const nowUtc = new Date().getTime();
+
+      const newTime = new Date(nowUtc - 7 * 60 * 60 * 1000);
+
+      // Format as "YYYY-MM-DDTHH:mm" (datetime-local expects no seconds or timezone)
+      const isoString = newTime.toISOString().slice(0, 16);
+
+      // Set the min attribute
+      document.getElementById("endTime").min = isoString;
+
       const handleFetch = async () => {
         url = new URL("api/health-check", window.location.origin);
         try {
