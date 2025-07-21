@@ -16,7 +16,7 @@ from sign_message import SignMessage
 proc = None
 sign_message = None
 
-threadExists = False
+message_is_pending_expiration = False
 cancel_event = threading.Event()
 
 def turnOff():
@@ -33,6 +33,7 @@ def turnOff():
 
 def expire(exp):
     if cancel_event.wait(timeout=exp):
+        turnOff()
         return
     turnOff()
 
@@ -126,7 +127,7 @@ def turn_off():
 def update_sign():
     global proc
     global sign_message
-    global threadExists
+    global message_is_pending_expiration
     global cancel_event
 
     if request.method == "GET":
@@ -147,14 +148,14 @@ def update_sign():
 
         ts = abs((endTime - currDate).total_seconds())
 
-        if threadExists:
+        if message_is_pending_expiration:
             cancel_event.set()
             cancel_event = threading.Event()
 
         currThread = threading.Thread(target=expire, args=(ts,))
         
         currThread.start()
-        threadExists = True
+        message_is_pending_expiration = True
         return jsonify({
             "endTime": endTime,
             "today": currDate,
@@ -174,7 +175,7 @@ def update_sign():
             print("running command", command, flush=True)
             if not args.development:
                 proc = subprocess.Popen(command)
-            success = True
+        success = True
         return jsonify({
             "success": success
         })

@@ -25,13 +25,9 @@
     />
 
     <script>
-      // Get current time in UTC milliseconds
       const nowUtc = new Date().getTime();
-
-      const newTime = new Date(nowUtc - 7 * 60 * 60 * 1000);
-
-      // Format as "YYYY-MM-DDTHH:mm" (datetime-local expects no seconds or timezone)
-      const isoString = newTime.toISOString().slice(0, 16);
+      nowUtc.toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+      const isoString = nowUtc.toISOString().slice(0, 16);
 
       // Set the min attribute
       document.getElementById("endTime").min = isoString;
