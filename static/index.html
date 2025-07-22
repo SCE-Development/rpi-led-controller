@@ -25,12 +25,15 @@
     />
 
     <script>
-      const nowUtc = new Date().getTime();
-      nowUtc.toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
-      const isoString = nowUtc.toISOString().slice(0, 16);
-
-      // Set the min attribute
-      document.getElementById("endTime").min = isoString;
+      const localDate = new Date().toLocaleString();
+      var localISO = new Date(localDate);
+      console.log(localISO.getTimezoneOffset());
+      localISO = new Date(
+        localISO.getTime() - localISO.getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+      document.getElementById("endTime").min = localISO;
 
       const handleFetch = async () => {
         url = new URL("api/health-check", window.location.origin);
@@ -41,8 +44,6 @@
           }
 
           const data = await res.json();
-
-          console.log(Object.hasOwn(data, "text"));
 
           if (!Object.hasOwn(data, "text")) {
             document.getElementById("sign-preview").style.display = "none";

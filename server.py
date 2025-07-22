@@ -7,7 +7,8 @@ import subprocess
 import threading
 import time
 from datetime import datetime
-from zoneinfo import ZoneInfo 
+from zoneinfo import ZoneInfo
+from tzlocal import get_localzone_name
 
 from subprocess import Popen, PIPE, STDOUT
 
@@ -140,12 +141,14 @@ def update_sign():
             return jsonify({
                 "Sign": "Never Expires"
             })
-
+        
+        
         format_code = "%Y-%m-%dT%H:%M"
         endTime = datetime.strptime(request.args.get("endTime"), format_code)
-        endTime = endTime.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
-        currDate = datetime.now(ZoneInfo("America/Los_Angeles"))
-
+        endTime = endTime.replace(tzinfo=ZoneInfo(get_localzone_name()))
+        print(ZoneInfo(get_localzone_name()))
+        currDate = datetime.now().astimezone()
+        print(endTime, flush = True)
         ts = abs((endTime - currDate).total_seconds())
 
         if message_is_pending_expiration:
