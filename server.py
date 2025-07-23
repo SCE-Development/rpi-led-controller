@@ -8,7 +8,6 @@ import threading
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from tzlocal import get_localzone_name
 
 from subprocess import Popen, PIPE, STDOUT
 
@@ -123,7 +122,8 @@ def turn_off():
     })
 
 
-
+# this should be a POST only
+# change your fetch in the frontend in the click handler to make an "HTTP POST" request
 @app.route("/api/update-sign", methods=["POST", "GET"])
 def update_sign():
     global proc
@@ -142,12 +142,14 @@ def update_sign():
                 "Sign": "Never Expires"
             })
         
+        # you likely need to update the below to correctly parse the format of
+        # toISOString() being used in the frontend
         
         format_code = "%Y-%m-%dT%H:%M"
         endTime = datetime.strptime(request.args.get("endTime"), format_code)
-        endTime = endTime.replace(tzinfo=ZoneInfo(get_localzone_name()))
-        print(ZoneInfo(get_localzone_name()))
-        currDate = datetime.now().astimezone()
+        # ensure that both the date passed from the frontend and the "now" we are
+        # calculating below are both in UTC timezone, use print(..., flush = True)
+        currDate = datetime.now()
         print(endTime, flush = True)
         ts = abs((endTime - currDate).total_seconds())
 
