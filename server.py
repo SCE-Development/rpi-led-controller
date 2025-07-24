@@ -6,6 +6,9 @@ import random
 import subprocess
 import threading
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from subprocess import Popen, PIPE, STDOUT
 
 from sign_message import SignMessage
@@ -13,15 +16,26 @@ from sign_message import SignMessage
 proc = None
 sign_message = None
 
+message_is_pending_expiration = False
+cancel_event = threading.Event()
+
 def turnOff():
     global proc
     global sign_message
     success = False
+    if args.development:
+      sign_message = None
     if proc != None:
         proc.kill()
         sign_message = None
         success = True
     return success
+
+def expire(exp):
+    if cancel_event.wait(timeout=exp):
+        turnOff()
+        return
+    turnOff()
 
 app = Flask(__name__)
 parser = argparse.ArgumentParser()
@@ -103,18 +117,59 @@ def random_message():
 
 @app.route("/api/turn-off", methods=["GET"])
 def turn_off():
-
     return jsonify({
         "success": turnOff()
     })
 
 
-@app.route("/api/update-sign", methods=["POST"])
+# this should be a POST only
+# change your fetch in the frontend in the click handler to make an "HTTP POST" request
+@app.route("/api/update-sign", methods=["POST", "GET"])
 def update_sign():
     global proc
     global sign_message
+    global message_is_pending_expiration
+    global cancel_event
+
+    if request.method == "GET":
+        if sign_message == None:
+            return jsonify({
+                "Sign": "Already Expired"
+            })
+    
+        if request.args.get("endTime") == '':
+            return jsonify({
+                "Sign": "Never Expires"
+            })
+        
+        # you likely need to update the below to correctly parse the format of
+        # toISOString() being used in the frontend
+        
+        format_code = "%Y-%m-%dT%H:%M"
+        endTime = datetime.strptime(request.args.get("endTime"), format_code)
+        # ensure that both the date passed from the frontend and the "now" we are
+        # calculating below are both in UTC timezone, use print(..., flush = True)
+        currDate = datetime.now()
+        print(endTime, flush = True)
+        ts = abs((endTime - currDate).total_seconds())
+
+        if message_is_pending_expiration:
+            cancel_event.set()
+            cancel_event = threading.Event()
+
+        currThread = threading.Thread(target=expire, args=(ts,))
+        
+        currThread.start()
+        message_is_pending_expiration = True
+        return jsonify({
+            "endTime": endTime,
+            "today": currDate,
+            "time": ts
+        })
+
     data = request.json
     CURRENT_DIRECTORY = path.dirname(path.abspath(__file__)) + sep
+
     success = False
     if proc != None:
         proc.kill()
@@ -133,6 +188,9 @@ def update_sign():
         print(e, flush=True)
         sign_message = None
         return "Could not update sign", 500
+    
+
+
 @app.route('/')
 def home():
     return render_template('index.html')

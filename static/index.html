@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -8,6 +7,14 @@
   </head>
 
   <body>
+    <input type="datetime-local" id="endTime" name="endTime" />
+    <!--
+        - change the below to a button
+        - add a window.getElementById(...).addEventListener(...)
+        - prevent the form from being submitted, it should be in your click handler that a fetch is made
+        - the click handler does the conversion of timezones, etc. before submitting
+      -->
+    <button class="button" id="submit-button">Submit End Time</button>
     <h3 id="isOff" style="display: none">Sign is Off</h3>
     <marquee
       id="sign-preview"
@@ -22,6 +29,34 @@
     />
 
     <script>
+      // if you have a date variable (or create a new date), this gives you the utc value
+      // new Date().toISOString()
+
+      // what we should do here is
+      // - get the date that the user entered (console log it to see if its in milpitas timezone)
+      // - once you have this user inputted value as a variable, use toISOString to convert it to a UTC string
+      // - pass the UTC string to the backend
+      document.getElementById("submit-button").addEventListener("click", click);
+
+      function click() {
+        var currTime = new Date(document.getElementById("endTime").value);
+
+        location.href = new URL(
+          "api/update-sign?endTime=" + currTime.toISOString().slice(0, 16),
+          window.location.origin
+        ).href;
+      }
+      // restricts minimum date entered
+      const localDate = new Date().toLocaleString();
+      var localISO = new Date(localDate);
+      localISO = new Date(
+        localISO.getTime() - localISO.getTimezoneOffset() * 60000
+      )
+        .toISOString()
+        .slice(0, 16);
+      document.getElementById("endTime").min = localISO;
+
+      //updates sign
       const handleFetch = async () => {
         url = new URL("api/health-check", window.location.origin);
         try {
@@ -31,8 +66,6 @@
           }
 
           const data = await res.json();
-
-          console.log(Object.hasOwn(data, "text"));
 
           if (!Object.hasOwn(data, "text")) {
             document.getElementById("sign-preview").style.display = "none";
