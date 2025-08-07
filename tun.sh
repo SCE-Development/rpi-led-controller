@@ -38,7 +38,6 @@ open_ssh_tunnel
 # $ ./tun.sh tunnel-only
 if [ -z "$1" ]
 then
-    python /app/alerting.py 
     python /app/server.py
 fi
 
