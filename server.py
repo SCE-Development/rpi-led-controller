@@ -1,4 +1,5 @@
 import argparse
+from fastapi import FastAPI
 import logging
 from flask import Flask, request, jsonify, render_template # type: ignore
 from os import sep, path
@@ -10,45 +11,24 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from args import get_args
 from threading import Timer
-
 from subprocess import Popen, PIPE, STDOUT
 
 tied = False
 threadExists = False
 cancel_event = threading.Event()
-
+process = None
 
 app = Flask(__name__)
 
 
-
-
-# def maybe_reopen_ssh_tunnel():
-    # """
-    # if we havent recieved a health check ping in over 1 min then
-    # we rerun the script to open the ssh tunnel.
-    # """
-    # while 1:
-    #     time.sleep(60)
-    #     now_epoch_seconds = int(time.time())
-    #     # skip reopening the tunnel if the value is 0 or falsy
-    #     if not last_health_check_request._value.get():
-    #         continue
-    #     if now_epoch_seconds - last_health_check_request._value.get() > 120:
-    #         ssh_tunnel_last_opened.set(now_epoch_seconds)
-    #         subprocess.Popen(
-    #             './tun.sh tunnel-only',
-    #             shell=True,
-    #             stderr=subprocess.DEVNULL,
-    #             stdout=subprocess.DEVNULL,
-    #         )
-
-
+args = get_args()
 
 @app.route("/tie", methods=["GET"])
 def tieShoes():
     print("TIE CALLED AND ORIENTATION IS TOMORROW!!!!!", flush=True)
+    global process
     global tied
     global threadExists
     global cancel_event
@@ -73,6 +53,9 @@ def tieShoes():
     currThread.start()
     threadExists = True
 
+    process = subprocess.Popen(['sleep', '1000000'])
+    print(f"Process Started. ID is {process.pid}", flush = True)
+
     return jsonify({
         "endTime": endTime,
         "today": currDate,
@@ -84,9 +67,14 @@ def expire(exp):
     # if the time is being changed, it means this current expire is no longer valid -> just exit function
     if cancel_event.wait(timeout=exp):
         print("forget it lol", flush=True)
+        process.kill()
+        print(f"Process Killed. ID is {process.pid}", flush = True)
         return
     print("untied lmao", flush=True)
     tied = False
+
+    process.kill()
+    print(f"Process Killed. ID is {process.pid}", flush = True)
 
 
 @app.route("/status", methods=["GET"])
@@ -108,7 +96,6 @@ def status_check():
 def home():     
     return render_template('index.html', tied = tied)
 
-
 if __name__ == "__main__":
     # give the last opened an initial value of now,
     # since upon starting the led sign the tunnel should
@@ -120,4 +107,4 @@ if __name__ == "__main__":
     #         daemon=True,
     #     )
     #     t.start()
-    app.run(host="0.0.0.0", port=7000, debug=True, threaded=True)
+    app.run(host="0.0.0.0", port=args.port, debug=True, threaded=True)
