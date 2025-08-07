@@ -14,7 +14,7 @@ CORE_V4_HOST=sce@${CORE_V4_IP}
 
 open_ssh_tunnel () {
 
-    ssh -v \
+    ssh \
     -o UserKnownHostsFile=${DOCKER_CONTAINER_KNOWN_HOSTS} \
     -o StrictHostKeyChecking=no \
     -i ${DOCKER_CONTAINER_SSH_KEYS} \
@@ -38,7 +38,6 @@ open_ssh_tunnel
 # $ ./tun.sh tunnel-only
 if [ -z "$1" ]
 then
-    python /app/alerting.py 
     python /app/server.py
 fi
 

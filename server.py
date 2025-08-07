@@ -1,151 +1,148 @@
-import argparse
-from flask import Flask, request, jsonify, render_template
-from os import sep, path
-from prometheus_client import Gauge, generate_latest
-import random
-import subprocess
+from fastapi import FastAPI, Request, HTTPException
+import uvicorn
 import threading
-import time
-from subprocess import Popen, PIPE, STDOUT
+import logging
+import subprocess
+from fastapi.staticfiles import StaticFiles
+from datetime import datetime, timezone
+from dataclasses import dataclass
+import argparse
 
-from sign_message import SignMessage
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
 
-proc = None
-sign_message = None
+@dataclass
+class SignData:
+    background_color: str
+    text_color: str
+    border_color: str
+    scroll_speed: int
+    text: str
+    expiration: datetime
 
-def turnOff():
-    global proc
-    global sign_message
-    success = False
-    if proc != None:
-        proc.kill()
-        sign_message = None
-        success = True
-    return success
+    def to_subprocess_command(self) -> str:
+        return ("--set-background-color " + self.background_color +
+                " --set-font-color " + self.text_color +
+                " --set-border-color " + self.border_color +
+                " --set-speed " + str(self.scroll_speed) +
+                " --set-text " + self.text +
+                " --set-expiration " + self.expiration.isoformat()
+                )
 
-app = Flask(__name__)
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--development',
-    action='store_true',
-    help='if set, runs in dev mode (skip ssh tunnel and running binary file)',
+app = FastAPI()
+cancel_event = threading.Event()
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=10000,
+        help="port for server to be hosted on, defaults to 10000"
+    )
+    parser.add_argument(
+        "--development",
+        action="store_true",
+        help="stores true if passed in"
+    )
+    return parser.parse_args()
+
+args = get_args()
+    
+logging.basicConfig( #logging is another way u can logging.info text in the terminal when running python
+    level=logging.INFO,
+    format='%(asctime)s [%(threadName)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S' #date format
 )
-parser.add_argument(
-    '--port',
-    type=int,
-    default=80,
-    help='port for server to listen on',
-)
-args = parser.parse_args()
 
-last_health_check_request = Gauge(
-    'last_health_check_request',
-    'the last time the server recieved an HTTP GET request to /api/health-check',
-)
-ssh_tunnel_last_opened = Gauge('ssh_tunnel_last_opened', 'the last time we opened the ssh tunnel')
+sign_data = None
+process = None
 
-def hex_to_rgb(hex_value):
-    return ",".join([str(int(hex_value[i:i+2], 16)) for i in (0, 2, 4)])
+# when u call replace on a datetime object, the time technically stays the same
+# u are just updating the timezone
+# when u call astimezone u are updating the timezone and converting the time to be in that timezone
 
-def maybe_reopen_ssh_tunnel():
-    """
-    if we havent recieved a health check ping in over 1 min then
-    we rerun the script to open the ssh tunnel.
-    """
-    while 1:
-        time.sleep(60)
-        now_epoch_seconds = int(time.time())
-        # skip reopening the tunnel if the value is 0 or falsy
-        if not last_health_check_request._value.get():
-            continue
-        if now_epoch_seconds - last_health_check_request._value.get() > 120:
-            ssh_tunnel_last_opened.set(now_epoch_seconds)
-            subprocess.Popen(
-                './tun.sh tunnel-only',
-                shell=True,
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-            )
+def set_and_reset_event():
+    global cancel_event
+    cancel_event.set()
+    cancel_event = threading.Event()
 
+def reset_sign(seconds):
+    if cancel_event.wait(timeout=seconds):
+        logging.info("cancelling old sign thread")
+        return
+    global process
+    global sign_data
+    sign_data = None
+    process.kill()
+    ID = process.pid
+    process = None
+    print("!!!killing process of ", ID, "& expiring")
 
-@app.route("/api/health-check", methods=["GET"])
-def health_check():
-    last_health_check_request.set(int(time.time()))
-    global sign_message
-    if sign_message:
-        return jsonify(sign_message.to_dict())
+@app.get("/turn-off") #
+def turn_off_process():
+    global process
+    global sign_data
+    set_and_reset_event()
+    if process != None:
+        sign_data = None
+        ID = process.pid
+        print("killing process of", str(ID))
+        process.kill()
+        process = None
+        return({"message": "killing old process of " + str(ID) })
     else:
-        return jsonify({
-            "success": True
-        })
+        print("no process to kill")
+        return({"message": "no process to kill"})
 
-@app.route("/metrics", methods=["GET"])
-def metrics():
-    return generate_latest()
+@app.post("/update-sign")
+async def update(request: Request):
+    global process
+    response = await request.json()
+    expiration = None
+    global sign_data
+    global process
+    if(process != None): #if there's older processes
+        process.kill()
+        ID = process.pid
+        process = None
+        print("KILLING OLD process", ID)
 
-@app.route("/api/random", methods=["GET"])
-def random_message():
-    text = subprocess.check_output(
-        "sort -R random.txt | head -n1",
-        shell=True).decode('utf-8').strip().replace("\\", "")
-    text_color = "#%06x" % random.randint(0, 0xFFFFFF)
-    background_color = "#%06x" % random.randint(0, 0xFFFFFF)
-    border_color = "#%06x" % random.randint(0, 0xFFFFFF)
-    return jsonify({
-        "scrollSpeed": 10,
-        "backgroundColor": background_color,
-        "textColor": text_color,
-        "borderColor": border_color,
-        "text": text,
-        "success": True
-    })
+    if "expiration" in response:
+        if not response["expiration"]: # catches the empty values
+            print("continuing with no expiration")
+        else:
+            expiration_string = response["expiration"]
+            print("MADE IT ", expiration_string)
+            expiration = datetime.fromisoformat(expiration_string.replace("Z", "+00:00"))
+            expiration = expiration.astimezone(tz=timezone.utc)
+            print(type(expiration))
+            now = datetime.now(tz=timezone.utc)
+            if expiration != None:
+                if expiration <= now:
+                    raise HTTPException(status_code=400, detail="Expiration is in the past")
+                else:
+                    #  create sign_data object if expiration is valid
+                    seconds = (expiration - datetime.now(timezone.utc)).total_seconds()
+                    print("date expiring ", expiration , " now ", now," seconds to expire ", seconds)
+                    signThread = threading.Thread(target=reset_sign, args=(seconds,))
+                    logging.info("starting thread, updating sign")
+                    set_and_reset_event()
+                    signThread.start()
+    sign_data = SignData(response["background_color"], response["text_color"], response["border_color"], response["scroll_speed"], response["text"], expiration)
+    command = sign_data.to_subprocess_command().split()
+    if not args.development:
+        process = subprocess.Popen(command)
+        print("process id of new ", process.pid)
 
 
-@app.route("/api/turn-off", methods=["GET"])
-def turn_off():
+@app.get("/health-check") # my health check
+def status():
+    global sign_data
+    return({ "sign data": sign_data})
+    
 
-    return jsonify({
-        "success": turnOff()
-    })
-
-
-@app.route("/api/update-sign", methods=["POST"])
-def update_sign():
-    global proc
-    global sign_message
-    data = request.json
-    CURRENT_DIRECTORY = path.dirname(path.abspath(__file__)) + sep
-    success = False
-    if proc != None:
-        proc.kill()
-    try:
-        if data and len(data):
-            sign_message = SignMessage(data)
-            command = sign_message.to_subprocess_command()
-            print("running command", command, flush=True)
-            if not args.development:
-                proc = subprocess.Popen(command)
-        success = True
-        return jsonify({
-            "success": success
-        })
-    except Exception as e:
-        print(e, flush=True)
-        sign_message = None
-        return "Could not update sign", 500
-@app.route('/')
-def home():
-    return render_template('index.html')
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
-    # give the last opened an initial value of now,
-    # since upon starting the led sign the tunnel should
-    # be open
-    ssh_tunnel_last_opened.set(int(time.time()))
-    if not args.development:
-        t = threading.Thread(
-            target=maybe_reopen_ssh_tunnel,
-            daemon=True,
-        )
-        t.start()
-    app.run(host="0.0.0.0", port=args.port, debug=True, threaded=True)
+    uvicorn.run("server:app", port=args.port, reload=True)
