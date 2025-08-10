@@ -130,13 +130,15 @@ def write_message_to_sign(new_data):
     global process
     global sign_data
     maybe_seconds = None
+    maybe_suffix = ''
     if new_data.expiration is not None:
         maybe_seconds = (
             new_data.expiration - datetime.datetime.now(tz=datetime.timezone.utc)
         ).total_seconds()
+        maybe_suffix = f', expiring in {maybe_seconds} seconds'
     set_and_reset_event()
     sign_lock.acquire()
-    logging.info(f"Updating sign with state {new_data}")
+    logging.info(f"Updating sign with state {new_data}" + maybe_suffix)
     if not args.development:
         logging.info(
             f"starting sign process with command {new_data.to_subprocess_command()} procecccc {process}"
