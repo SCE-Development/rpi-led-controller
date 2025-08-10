@@ -1,148 +1,247 @@
-from fastapi import FastAPI, Request, HTTPException
-import uvicorn
-import threading
+import argparse
+import datetime
+import dataclasses
 import logging
 import subprocess
+import threading
+
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
-from datetime import datetime, timezone
-from dataclasses import dataclass
-import argparse
+import uvicorn
+
 
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
 
-@dataclass
+
+@dataclasses.dataclass
 class SignData:
-    background_color: str
-    text_color: str
-    border_color: str
-    scroll_speed: int
+    # we are using camel case over snake case to match the
+    # casing that the SCE website expects. by doing this
+    # we skip the need to convert an object's snake case
+    # to camel case and vice versa.
+    backgroundColor: str
+    textColor: str
+    borderColor: str
+    scrollSpeed: int
+    brightness: int
     text: str
-    expiration: datetime
+    expiration: datetime.datetime
 
     def to_subprocess_command(self) -> str:
-        return ("--set-background-color " + self.background_color +
-                " --set-font-color " + self.text_color +
-                " --set-border-color " + self.border_color +
-                " --set-speed " + str(self.scroll_speed) +
-                " --set-text " + self.text +
-                " --set-expiration " + self.expiration.isoformat()
-                )
+        return (
+            "--set-background-color "
+            + self.background_color
+            + " --set-font-color "
+            + self.text_color
+            + " --set-border-color "
+            + self.border_color
+            + " --set-speed "
+            + str(self.scroll_speed)
+            + " --set-text "
+            + self.text
+        )
+
 
 app = FastAPI()
 cancel_event = threading.Event()
+sign_lock = threading.Lock()
+
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="optional host argument to uvicorn, defaults to 0.0.0.0",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=10000,
-        help="port for server to be hosted on, defaults to 10000"
+        help="port for server to be hosted on, defaults to 10000",
     )
     parser.add_argument(
-        "--development",
-        action="store_true",
-        help="stores true if passed in"
+        "--development", action="store_true", help="stores true if passed in"
     )
     return parser.parse_args()
 
+
 args = get_args()
-    
-logging.basicConfig( #logging is another way u can logging.info text in the terminal when running python
+
+logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(threadName)s] %(levelname)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S' #date format
+    format="%(asctime)s.%(msecs)03dZ %(threadName)s %(levelname)s:%(filename)s:%(lineno)d: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
 )
 
 sign_data = None
 process = None
 
-# when u call replace on a datetime object, the time technically stays the same
+# when u call replace on a datetime.datetime object, the time technically stays the same
 # u are just updating the timezone
 # when u call astimezone u are updating the timezone and converting the time to be in that timezone
+
 
 def set_and_reset_event():
     global cancel_event
     cancel_event.set()
     cancel_event = threading.Event()
 
-def reset_sign(seconds):
-    if cancel_event.wait(timeout=seconds):
-        logging.info("cancelling old sign thread")
-        return
-    global process
-    global sign_data
-    sign_data = None
-    process.kill()
-    ID = process.pid
-    process = None
-    print("!!!killing process of ", ID, "& expiring")
 
-@app.get("/turn-off") #
-def turn_off_process():
+def stop_process_and_clear_state():
     global process
     global sign_data
+
+    sign_data = None
+    if process is None:
+        message = "process is None, skipping termination"
+        if args.development:
+            message = "running in development mode, skipping termination"
+        logging.info(message)
+        sign_lock.release()
+        return
+
+    # better wording for printing the returncode, if the process
+    # was already stopped for some reason we wil log it as such
+    exited_text = "already exited"
+    if process.poll() is None:  # still running
+        exited_text = "exited"
+        logging.info(f"Got cancel signal, attempting to terminate PID {process.pid}")
+        try:
+            process.terminate()  # graceful shutdown
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                logging.warning(
+                    f"PID {process.pid} did not terminate in time, killing..."
+                )
+                process.kill()
+                process.wait(timeout=5)
+        except Exception:
+            logging.exception(f"Error stopping process {process.pid}:")
+
+    logging.info(f"Process {process.pid} {exited_text} with code {process.returncode}")
+    process = None
+    sign_lock.release()
+
+
+def write_message_to_sign(new_data):
+    global process
+    global sign_data
+    maybe_seconds = None
+    if new_data.expiration is not None:
+        maybe_seconds = (
+            new_data.expiration - datetime.datetime.now(tz=datetime.timezone.utc)
+        ).total_seconds()
     set_and_reset_event()
-    if process != None:
-        sign_data = None
-        ID = process.pid
-        print("killing process of", str(ID))
-        process.kill()
-        process = None
-        return({"message": "killing old process of " + str(ID) })
-    else:
-        print("no process to kill")
-        return({"message": "no process to kill"})
+    sign_lock.acquire()
+    logging.info(f"Updating sign with state {new_data}")
+    if not args.development:
+        logging.info(
+            f"starting sign process with command {new_data.to_subprocess_command()} procecccc {process}"
+        )
+        process = subprocess.Popen(
+            args=["sleep", "10000"],
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        logging.info(f"sign process started with pid {process.pid}")
+
+    sign_data = new_data
+
+    # https://www.youtube.com/watch?v=a7fH15f-XIU
+    # we wait for the event to be set. if/when it is
+    # the process is stopped underneath the if statement
+    if cancel_event.wait(timeout=maybe_seconds):
+        logging.info("recieved cancel signal, exiting now")
+    stop_process_and_clear_state()
+
+
+@app.get("/turn-off")  #
+def turn_off_process():
+    set_and_reset_event()
+    return {"success": True}
+
 
 @app.post("/update-sign")
 async def update(request: Request):
-    global process
-    response = await request.json()
-    expiration = None
-    global sign_data
-    global process
-    if(process != None): #if there's older processes
-        process.kill()
-        ID = process.pid
-        process = None
-        print("KILLING OLD process", ID)
+    json_data = await request.json()
 
-    if "expiration" in response:
-        if not response["expiration"]: # catches the empty values
-            print("continuing with no expiration")
-        else:
-            expiration_string = response["expiration"]
-            print("MADE IT ", expiration_string)
-            expiration = datetime.fromisoformat(expiration_string.replace("Z", "+00:00"))
-            expiration = expiration.astimezone(tz=timezone.utc)
-            print(type(expiration))
-            now = datetime.now(tz=timezone.utc)
-            if expiration != None:
-                if expiration <= now:
-                    raise HTTPException(status_code=400, detail="Expiration is in the past")
-                else:
-                    #  create sign_data object if expiration is valid
-                    seconds = (expiration - datetime.now(timezone.utc)).total_seconds()
-                    print("date expiring ", expiration , " now ", now," seconds to expire ", seconds)
-                    signThread = threading.Thread(target=reset_sign, args=(seconds,))
-                    logging.info("starting thread, updating sign")
-                    set_and_reset_event()
-                    signThread.start()
-    sign_data = SignData(response["background_color"], response["text_color"], response["border_color"], response["scroll_speed"], response["text"], expiration)
-    command = sign_data.to_subprocess_command().split()
-    if not args.development:
-        process = subprocess.Popen(command)
-        print("process id of new ", process.pid)
+    missing_entries = []
+    for key in [
+        "backgroundColor",
+        "textColor",
+        "borderColor",
+        "scrollSpeed",
+        "brightness",
+        "text",
+    ]:
+        if json_data.get(key) is None:
+            missing_entries.append(key)
+
+    if missing_entries:
+        missing_entries_str = ",".join(missing_entries)
+        raise HTTPException(
+            status_code=400,
+            detail=f"the following parameter(s) are required: {missing_entries_str}",
+        )
+
+    new_data = SignData(
+        json_data.get("backgroundColor"),
+        json_data.get("textColor"),
+        json_data.get("borderColor"),
+        json_data.get("scrollSpeed"),
+        json_data.get("brightness"),
+        json_data.get("text"),
+        None,
+    )
+    if json_data.get("expiration") is not None:
+        expiration = json_data.get("expiration")
+        try:
+            expiration_as_dt = datetime.datetime.fromisoformat(
+                expiration.replace("Z", "+00:00")
+            )
+            expiration_as_dt = expiration_as_dt.astimezone(tz=datetime.timezone.utc)
+            now = datetime.datetime.now(tz=datetime.timezone.utc)
+            if expiration_as_dt < now:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"expiration value {expiration_as_dt} is before current time of {now}",
+                )
+
+            new_data.expiration = expiration_as_dt
+        except ValueError as e:
+            logging.exception(f"unable to parse expiration {expiration}:")
+            raise HTTPException(
+                status_code=400,
+                detail=f"unable to parse expiration {expiration}: {e.with_traceback}",
+            )
+    signThread = threading.Thread(target=write_message_to_sign, args=(new_data,))
+    signThread.start()
+
+    return {"success": True}
 
 
-@app.get("/health-check") # my health check
+@app.get("/health-check")  # my health check
 def status():
-    global sign_data
-    return({ "sign data": sign_data})
-    
+    if sign_data is None:
+        return {}
+    # the below dataclasses.asdict is the equivalent of doing
+    # { ...sign_data } in js
+    response = {**dataclasses.asdict(sign_data)}
+    if process is not None:
+        response["pid"] = process.pid
+    return response
+
+
+@app.on_event("shutdown")
+def signal_handler():
+    set_and_reset_event()
+
 
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", port=args.port, reload=True)
+    uvicorn.run("server:app", host=args.host, port=args.port, reload=True)
