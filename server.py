@@ -36,7 +36,7 @@ class SignData:
         return [
             os.path.join(WORKING_DIRECTORY, "sce_sign.exe"),
             "--set-speed",
-            self.scrollSpeed + " px/vsync",
+            str(self.scrollSpeed) + " px/vsync",
             "--set-background-color",
             self.backgroundColor,
             "--set-font-color",
