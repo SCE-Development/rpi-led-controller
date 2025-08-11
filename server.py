@@ -187,7 +187,7 @@ async def update(request: Request):
         "brightness",
         "text",
     ]:
-        if json_data.get(key) is None or not json_data.get(key):
+        if json_data.get(key) is None:
             missing_entries.append(key)
 
     if missing_entries:
