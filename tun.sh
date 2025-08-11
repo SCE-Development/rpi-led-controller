@@ -31,6 +31,8 @@ ls /app/ssh
 
 chmod 600 ${DOCKER_CONTAINER_SSH_KEYS}
 
+open_ssh_tunnel
+
 # if no value is sent along with the invocation of the script,
 # run the server. otherwise just open the ssh tunnel. i.e.
 #
@@ -41,7 +43,6 @@ chmod 600 ${DOCKER_CONTAINER_SSH_KEYS}
 # $ ./tun.sh tunnel-only
 if [ -z "$1" ]
 then
-    python /app/server.py &
+    python /app/server.py
 fi
 
-open_ssh_tunnel
