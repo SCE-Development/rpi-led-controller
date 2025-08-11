@@ -150,7 +150,8 @@ def write_message_to_sign(new_data):
     logging.info(f"Updating sign with state {new_data}" + maybe_suffix)
     if not args.development:
         logging.info(
-            "starting sign process with command " +  ' \\\n\t'.join(new_data.to_subprocess_command())
+            "starting sign process with command "
+            + " \\\n\t".join(new_data.to_subprocess_command())
         )
         process = subprocess.Popen(
             args=new_data.to_subprocess_command(),
@@ -245,12 +246,14 @@ def status():
         response["pid"] = process.pid
     return response
 
+
 @app.get("/metrics")
 def get_metrics():
     return Response(
         media_type="text/plain",
         content=prometheus_client.generate_latest(),
     )
+
 
 @app.on_event("shutdown")
 def signal_handler():
