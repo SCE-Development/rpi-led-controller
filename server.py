@@ -187,7 +187,7 @@ async def update(request: Request):
         "brightness",
         "text",
     ]:
-        if json_data.get(key) is None:
+        if json_data.get(key) is None or not json_data.get(key):
             missing_entries.append(key)
 
     if missing_entries:
@@ -198,9 +198,10 @@ async def update(request: Request):
         )
 
     new_data = SignData(
-        json_data.get("backgroundColor"),
-        json_data.get("textColor"),
-        json_data.get("borderColor"),
+        # we have to convert "#FFFFFF" to FFFFFF
+        json_data.get("backgroundColor")[1:],
+        json_data.get("textColor")[1:],
+        json_data.get("borderColor")[1:],
         json_data.get("scrollSpeed"),
         json_data.get("brightness"),
         json_data.get("text"),
