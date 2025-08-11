@@ -2,6 +2,7 @@ import argparse
 import datetime
 import dataclasses
 import logging
+import os
 import subprocess
 import threading
 
@@ -12,6 +13,8 @@ import uvicorn
 
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
+
+WORKING_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 
 @dataclasses.dataclass
@@ -29,18 +32,23 @@ class SignData:
     expiration: datetime.datetime
 
     def to_subprocess_command(self) -> str:
-        return (
-            "--set-background-color "
-            + self.background_color
-            + " --set-font-color "
-            + self.text_color
-            + " --set-border-color "
-            + self.border_color
-            + " --set-speed "
-            + str(self.scroll_speed)
-            + " --set-text "
-            + self.text
-        )
+        return [
+            os.path.join(WORKING_DIRECTORY, "sce_sign.exe"),
+            "--set-speed",
+            self.scroll_speed + " px/vsync",
+            "--set-background-color",
+            self.background_color,
+            "--set-font-color",
+            self.text_color,
+            "--set-border-color",
+            self.border_color,
+            "--set-font-filename",
+            self.led_sign_directory + "10x20.bdf",
+            "--set-brightness",
+            "66%",
+            "--set-text",
+            self.text,
+        ]
 
 
 app = FastAPI()
@@ -130,12 +138,12 @@ def write_message_to_sign(new_data):
     global process
     global sign_data
     maybe_seconds = None
-    maybe_suffix = ''
+    maybe_suffix = ""
     if new_data.expiration is not None:
         maybe_seconds = (
             new_data.expiration - datetime.datetime.now(tz=datetime.timezone.utc)
         ).total_seconds()
-        maybe_suffix = f', expiring in {maybe_seconds} seconds'
+        maybe_suffix = f", expiring in {maybe_seconds} seconds"
     set_and_reset_event()
     sign_lock.acquire()
     logging.info(f"Updating sign with state {new_data}" + maybe_suffix)
@@ -144,10 +152,8 @@ def write_message_to_sign(new_data):
             f"starting sign process with command {new_data.to_subprocess_command()} procecccc {process}"
         )
         process = subprocess.Popen(
-            args=["sleep", "10000"],
+            args=new_data.to_subprocess_command(),
             shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
         )
         logging.info(f"sign process started with pid {process.pid}")
 
