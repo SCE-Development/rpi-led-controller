@@ -38,11 +38,11 @@ class SignData:
             "--set-speed",
             str(self.scrollSpeed) + " px/vsync",
             "--set-background-color",
-            self.backgroundColor,
+            self.backgroundColor[1:],
             "--set-font-color",
-            self.textColor,
+            self.textColor[1:],
             "--set-border-color",
-            self.borderColor,
+            self.borderColor[1:],
             "--set-font-filename",
             os.path.join(WORKING_DIRECTORY, "10x20.bdf"),
             "--set-brightness",
@@ -199,9 +199,9 @@ async def update(request: Request):
 
     new_data = SignData(
         # we have to convert "#FFFFFF" to FFFFFF
-        json_data.get("backgroundColor")[1:],
-        json_data.get("textColor")[1:],
-        json_data.get("borderColor")[1:],
+        json_data.get("backgroundColor"),
+        json_data.get("textColor"),
+        json_data.get("borderColor"),
         json_data.get("scrollSpeed"),
         json_data.get("brightness"),
         json_data.get("text"),
