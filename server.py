@@ -6,8 +6,9 @@ import os
 import subprocess
 import threading
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
+import prometheus_client
 import uvicorn
 
 
@@ -243,6 +244,12 @@ def status():
         response["pid"] = process.pid
     return response
 
+@app.get("/metrics")
+def get_metrics():
+    return Response(
+        media_type="text/plain",
+        content=prometheus_client.generate_latest(),
+    )
 
 @app.on_event("shutdown")
 def signal_handler():
