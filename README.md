@@ -4,6 +4,12 @@ Python code that controls the LED sign in the SCE room
 We rely on sce_sign.exe, which is complied from a separate repo,
  https://github.com/kammce/sce-led-sign/
 
+the current os of the pi in the room is
+```
+# uname -a
+Linux raspberrypi 5.10.103-v7+ #1529 SMP Tue Mar 8 12:21:37 GMT 2022 armv7l GNU/Linux
+```
+
 ### Compiling text-scroller
 This is just to test if your hardware is connected properly.
 
