@@ -155,7 +155,6 @@ def write_message_to_sign(new_data):
         )
         process = subprocess.Popen(
             args=new_data.to_subprocess_command(),
-            shell=True,
         )
         logging.info(f"sign process started with pid {process.pid}")
 
