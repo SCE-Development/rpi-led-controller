@@ -1,2 +1,51 @@
 # rpi-led-controller
 Python code that controls the LED sign in the SCE room
+
+We rely on sce_sign.exe, which is complied from a separate repo,
+ https://github.com/kammce/sce-led-sign/
+
+### Compiling text-scroller
+This is just to test if your hardware is connected properly.
+
+```sh
+git clone https://github.com/hzeller/rpi-rgb-led-matrix.git
+make all
+
+# check if sound module is loaded
+lsmod | grep snd_bcm2835
+
+# edit these files, reboot after:
+
+# add `isolcpus=3` on its own line in
+/boot/cmdline.txt
+
+# add `blacklist snd_bcm2835` on its own line in
+/etc/modprobe.d/blacklist-rgb-led-matrix.conf
+
+# comment out dtparam=audio=on, add dtparam=audio=off to
+/boot/config.txt
+
+# go to where text scroller is
+cd rpi-rgb-led-matrix/utils/
+
+# you may need to install this
+sudo apt-get install libgraphicsmagick++-dev
+
+make all; make make text-scroller
+
+# test it out
+sudo ./text-scroller \
+    --led-chain=2 \
+    --led-rows=32 \
+    --led-cols=64 \
+    --led-gpio-mapping=adafruit-hat-pwm \
+    --led-slowdown-gpio=2 \
+    -s 10 \
+    -B 0,255,0 \
+    -C 255,0,0 \
+    -O 0,0,255 \
+    --led-brightness=48 \
+    -f ../fonts/10x20.bdf \
+    -y 5 test
+```
+
