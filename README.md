@@ -10,6 +10,15 @@ the current os of the pi in the room is
 Linux raspberrypi 5.10.103-v7+ #1529 SMP Tue Mar 8 12:21:37 GMT 2022 armv7l GNU/Linux
 ```
 
+docker version
+```
+# docker --version
+Docker version 20.10.17, build 100c701
+
+# docker-compose --version
+docker-compose version 1.21.0, build unknown
+```
+
 ### Compiling text-scroller
 This is just to test if your hardware is connected properly.
 
