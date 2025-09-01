@@ -19,13 +19,37 @@ Docker version 20.10.17, build 100c701
 docker-compose version 1.21.0, build unknown
 ```
 
-### Compiling text-scroller
-This is just to test if your hardware is connected properly.
+### Setting up pi from scratch
+- [ ] download this raspbian version from
+ https://ftp.jaist.ac.jp/pub/raspberrypi/raspios_armhf/images/raspios_armhf-2022-01-28/
+- [ ] write os to sd card, turn on pi + connect, enable ssh, verify os
+```
+# uname -a
+Linux raspberrypi 5.10.92-v7+ #1514 SMP Mon Jan 17 17:36:39 GMT 2022 armv7l GNU/Linux
+```
+- [ ] install docker with https://get.docker.com/, run the command with
+```
+sudo sh install-docker.sh --version 5:20.10.17~3-0~raspbian-bullseye
 
+# add user to docker group
+sudo usermod -aG docker pi
+
+# log out or reboot, so the change applies
+sudo reboot
+```
+- [ ] install docker-compose
+- [ ] verify docker with
+```
+$ docker --version
+Docker version 20.10.17, build 100c701
+$ docker compose version
+Docker Compose version v2.39.1
+```
+- [ ] follow the below sound module steps
+- [ ] clone this repo, do `docker compose up --build`
+
+### disabling sound module for rpi-rgb-led-matrix
 ```sh
-git clone https://github.com/hzeller/rpi-rgb-led-matrix.git
-make all
-
 # check if sound module is loaded
 lsmod | grep snd_bcm2835
 
@@ -39,6 +63,13 @@ lsmod | grep snd_bcm2835
 
 # comment out dtparam=audio=on, add dtparam=audio=off to
 /boot/config.txt
+```
+
+### Compiling text-scroller
+This is just to test if your hardware is connected properly.
+```sh
+git clone https://github.com/hzeller/rpi-rgb-led-matrix.git
+make all
 
 # go to where text scroller is
 cd rpi-rgb-led-matrix/utils/
